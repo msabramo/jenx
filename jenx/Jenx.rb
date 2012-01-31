@@ -138,7 +138,7 @@ class Jenx
     end
     
     def create_timer
-        time = @prefs.refresh_time == 0 ? 5 : @prefs.refresh_time
+        time = @prefs.refresh_time == 0 ? 15 : @prefs.refresh_time
         
         NSLog("create timer with refresh time of: #{time.to_s} seconds...")
         
