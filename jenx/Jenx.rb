@@ -110,7 +110,7 @@ class Jenx
     end
     
     def handle_broken_connection(error_type)
-        @refresh_timer.invalidate
+        # @refresh_timer.invalidate
         NSLog("#{CONNECTION_ERROR_TITLE}: #{error_type}")
         @jenx_item.setImage(@build_failure_icon)
         
