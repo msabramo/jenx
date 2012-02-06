@@ -53,28 +53,35 @@ class PreferencesGeneralViewController <  NSViewController
         NSLog "PreferencesGeneralViewController.load_projects - removeAllItems..."
         @project_list.removeAllItems
         NSLog "PreferencesGeneralViewController.load_projects - removeAllItems DONE"
-        begin
-            url = @server_url.stringValue[-1,1].eql?('/') ? @server_url.stringValue : @server_url.stringValue + '/'
-            NSLog "PreferencesGeneralViewController.load_projects - Calling all_projects - url = \"#{url}\"..."
-            @all_projects =  JenxConnection.new(url, @username.stringValue, @password.stringValue).all_projects
-            NSLog "PreferencesGeneralViewController.load_projects - Called all_projects DONE. Iterating thru #{@all_projects['jobs'].length} projects..."
-            @all_projects['jobs'].each do |project|
-                NSLog("PreferencesGeneralViewController.load_projects: Updating project: \"#{project['name']}\"")
-                @project_list.addItemWithObjectValue(project['name'])
-                NSLog("PreferencesGeneralViewController.load_projects: Updated project: \"#{project['name']}\"")
+        url = @server_url.stringValue[-1,1].eql?('/') ? @server_url.stringValue : @server_url.stringValue
+        url += JENX_API_URI
+        NSLog "PreferencesGeneralViewController.load_projects - Calling all_projects - url = \"#{url}\"..."
+        # url = @prefs.build_server_url + JENX_API_URI
+        # NSLog("fetching current build status for #{@prefs.num_menu_projects} projects from #{url}...")
+        
+        JenxRequest.new(url) do |all_projects|
+            begin
+                @all_projects = all_projects
+                NSLog "PreferencesGeneralViewController.load_projects - Called all_projects DONE. Iterating thru #{@all_projects['jobs'].length} projects..."
+                @all_projects['jobs'].each do |project|
+                    NSLog("PreferencesGeneralViewController.load_projects: Updating project: \"#{project['name']}\"")
+                    @project_list.addItemWithObjectValue(project['name'])
+                    NSLog("PreferencesGeneralViewController.load_projects: Updated project: \"#{project['name']}\"")
+                end
+                NSLog "PreferencesGeneralViewController.load_projects - Iterating thru #{@all_projects['jobs'].length} projects DONE"
+                
+                if !@prefs.default_project
+                    @project_list.selectItemWithObjectValue(0)
+                else
+                    @project_list.selectItemWithObjectValue(@prefs.default_project)
+                end
+            rescue URI::InvalidURIError => uri_error
+                NSLog(uri_error.inspect)
+            rescue Exception => error
+                NSLog(error.inspect)
             end
-            NSLog "PreferencesGeneralViewController.load_projects - Iterating thru #{@all_projects['jobs'].length} projects DONE"
-            
-            if !@prefs.default_project
-                @project_list.selectItemWithObjectValue(0)
-            else
-                @project_list.selectItemWithObjectValue(@prefs.default_project)
-            end
-        rescue URI::InvalidURIError => uri_error
-            NSLog(uri_error.inspect)
-        rescue Exception => error
-            NSLog(error.inspect)
         end
+        
         NSLog "DONE - PreferencesGeneralViewController.load_projects"
     end
     

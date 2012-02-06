@@ -58,50 +58,46 @@ class Jenx
     
     def fetch_current_build_status
         @old_default_build_status = @new_default_build_status
-        NSLog("fetching current build status for #{@prefs.num_menu_projects} projects from #{@prefs.build_server_url}...")
-        jenx_request = JenxRequest.new(@prefs.build_server_url + JENX_API_URI, method(:process_build_status))
-        jenx_request.perform_request
+        url = @prefs.build_server_url + JENX_API_URI
+        # NSLog("fetching current build status for #{@prefs.num_menu_projects} projects from #{url}...")
+        
+        JenxRequest.new(url) do |all_projects|
+            begin
+                # NSLog("all_projects = #{all_projects}")
+                @all_projects = all_projects
+                default_project_status_color = ''
+                @all_projects['jobs'].find {|p| default_project_status_color = p['color'] if p['name'].downcase.eql?(@prefs.default_project.downcase)}
+                @new_default_build_status = get_current_status_for(default_project_status_color)
+                
+                jenx_status_item = @jenx_item.menu.itemAtIndex(0)
+                jenx_status_item.setTitle(CONNECTED)
+                
+                # @menu_default_project.setTitle(localize_format("Project: %@", "#{@prefs.default_project}"))
+                @menu_default_project.setTitle(localize("Project: ") + @prefs.default_project)
+                
+                # @menu_default_project_status.setTitle(localize_format("Status: %@", "#{@new_default_build_status}"))
+                @menu_default_project_status.setTitle(localize("Status: ") + @new_default_build_status)
+                
+                date = Time.now.strftime(localize("%I:%M:%S %p", "%I:%M:%S %p"))
+                @menu_default_project_update_time.setTitle(localize("Last Update: ") + date)
+                # NSLog("Set last update time to #{date}")
+                
+                @jenx_item.setImage(get_current_status_icon_for(default_project_status_color, nil))
+                
+                # NSLog("update_ui: Calling load_projects...")
+                load_projects
+                # NSLog("update_ui: Called load_projects (DONE).")
+                # NSLog("update_ui DONE")
+            rescue Exception => e
+                self.handle_broken_connection(e)
+            end
+        end
     end
 
-    def process_build_status(all_projects)
-        NSLog("process_build_status called with #{all_projects.length} projects.")
-        @all_projects = all_projects
-        performSelector "update_ui", withObject:nil, waitUntilDone:false
-        NSLog("process_build_status DONE with #{all_projects.length} projects.")
-    end
-
-    def update_ui
-        default_project_status_color = ''
-        @all_projects['jobs'].find {|p| default_project_status_color = p['color'] if p['name'].downcase.eql?(@prefs.default_project.downcase)}
-        @new_default_build_status = get_current_status_for(default_project_status_color)
-        
-        jenx_status_item = @jenx_item.menu.itemAtIndex(0)
-        jenx_status_item.setTitle(CONNECTED)
-        
-        # @menu_default_project.setTitle(localize_format("Project: %@", "#{@prefs.default_project}"))
-        @menu_default_project.setTitle(localize("Project: ") + @prefs.default_project)
-
-        # @menu_default_project_status.setTitle(localize_format("Status: %@", "#{@new_default_build_status}"))
-        @menu_default_project_status.setTitle(localize("Status: ") + @new_default_build_status)
-
-        date = Time.now.strftime(localize("%I:%M:%S %p", "%I:%M:%S %p"))
-        @menu_default_project_update_time.setTitle(localize("Last Update: ") + date)
-        NSLog("Set last update time to #{date}")
-        
-        @jenx_item.setImage(get_current_status_icon_for(default_project_status_color, nil))
-
-        NSLog("update_ui: Calling load_projects...")
-        load_projects
-        NSLog("update_ui: Called load_projects (DONE).")
-        NSLog("update_ui DONE")
-    rescue Exception => e
-        NSLog("error fetching build status: #{e.message}...")
-    end
-    
     def load_projects
         @old_sub_build_statuses = @new_sub_build_statuses
         if @initial_load
-            NSLog("initial load of project menu items with #{@project_menu_count} projects...")
+            # NSLog("initial load of project menu items with #{@project_menu_count} projects...")
             @all_projects['jobs'].each_with_index do |project, index|
                 if index < @project_menu_count
                     @jenx_item.menu.insertItem(project_menu_item(project, index), atIndex:index + JENX_STARTING_PROJECT_MENU_INDEX)
@@ -114,24 +110,24 @@ class Jenx
             
             @initial_load = false
         else
-            NSLog("refreshing project menu items...")
+            # NSLog("refreshing project menu items...")
             
             @all_projects['jobs'].each_with_index do |project, index|
-                NSLog "Updating project menu item - project = \"#{project}\"; index = #{index}"
+                # NSLog "Updating project menu item - project = \"#{project}\"; index = #{index}"
                 if index < @project_menu_count
                     project_menu_item = @jenx_item.menu.itemAtIndex(index + JENX_STARTING_PROJECT_MENU_INDEX)
-                    NSLog "project_menu_item = #{project_menu_item}"
+                    # NSLog "project_menu_item = #{project_menu_item}"
                     project_menu_item.setImage(get_current_status_icon_for(project['color'], project_menu_item.image.name)) 
                 end
             end
 
-            NSLog("DONE refreshing project menu items...")
+            # NSLog("DONE refreshing project menu items...")
         end
         
-        NSLog("Calling growl_update_status...")
+        # NSLog("Calling growl_update_status...")
         growl_update_status
-        NSLog("Called growl_update_status (DONE).")
-        NSLog("load_projects (DONE).")
+        # NSLog("Called growl_update_status (DONE).")
+        # NSLog("load_projects (DONE).")
     end
     
     def handle_broken_connection(error_type)
