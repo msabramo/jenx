@@ -49,18 +49,28 @@ class Jenx
     end
     
     def ensure_connection(sender=nil)
-        NSLog("ensuring connection...")
         if @refresh_timer.nil? || !@refresh_timer.isValid
             create_timer
         end
-        JenxConnection.new(@prefs.build_server_url, @prefs.username, @prefs.password).is_connected? ? fetch_current_build_status : handle_broken_connection(ERROR_SERVER_CANNOT_BE_CONTACTED)
+
+        fetch_current_build_status
     end
     
     def fetch_current_build_status
         @old_default_build_status = @new_default_build_status
-        @all_projects = JenxConnection.new(@prefs.build_server_url, @prefs.username, @prefs.password).all_projects
-        NSLog("fetching current build status for #{@prefs.num_menu_projects} projects...")
-        
+        NSLog("fetching current build status for #{@prefs.num_menu_projects} projects from #{@prefs.build_server_url}...")
+        jenx_request = JenxRequest.new(@prefs.build_server_url + JENX_API_URI, method(:process_build_status))
+        jenx_request.perform_request
+    end
+
+    def process_build_status(all_projects)
+        NSLog("process_build_status called with #{all_projects.length} projects.")
+        @all_projects = all_projects
+        performSelector "update_ui", withObject:nil, waitUntilDone:false
+        NSLog("process_build_status DONE with #{all_projects.length} projects.")
+    end
+
+    def update_ui
         default_project_status_color = ''
         @all_projects['jobs'].find {|p| default_project_status_color = p['color'] if p['name'].downcase.eql?(@prefs.default_project.downcase)}
         @new_default_build_status = get_current_status_for(default_project_status_color)
@@ -68,14 +78,22 @@ class Jenx
         jenx_status_item = @jenx_item.menu.itemAtIndex(0)
         jenx_status_item.setTitle(CONNECTED)
         
-	      @menu_default_project.setTitle(localize_format("Project: %@", "#{@prefs.default_project}"))
-        @menu_default_project_status.setTitle(localize_format("Status: %@", "#{@new_default_build_status}"))
-      	date = Time.now.strftime(localize("%I:%M:%S %p", "%I:%M:%S %p"))
-        @menu_default_project_update_time.setTitle(localize_format("Last Update: %@", date))
+        # @menu_default_project.setTitle(localize_format("Project: %@", "#{@prefs.default_project}"))
+        @menu_default_project.setTitle(localize("Project: ") + @prefs.default_project)
+
+        # @menu_default_project_status.setTitle(localize_format("Status: %@", "#{@new_default_build_status}"))
+        @menu_default_project_status.setTitle(localize("Status: ") + @new_default_build_status)
+
+        date = Time.now.strftime(localize("%I:%M:%S %p", "%I:%M:%S %p"))
+        @menu_default_project_update_time.setTitle(localize("Last Update: ") + date)
+        NSLog("Set last update time to #{date}")
         
         @jenx_item.setImage(get_current_status_icon_for(default_project_status_color, nil))
 
+        NSLog("update_ui: Calling load_projects...")
         load_projects
+        NSLog("update_ui: Called load_projects (DONE).")
+        NSLog("update_ui DONE")
     rescue Exception => e
         NSLog("error fetching build status: #{e.message}...")
     end
@@ -98,19 +116,26 @@ class Jenx
         else
             NSLog("refreshing project menu items...")
             
-            @all_projects['jobs'].each_with_index do |project, index| 
+            @all_projects['jobs'].each_with_index do |project, index|
+                NSLog "Updating project menu item - project = \"#{project}\"; index = #{index}"
                 if index < @project_menu_count
                     project_menu_item = @jenx_item.menu.itemAtIndex(index + JENX_STARTING_PROJECT_MENU_INDEX)
+                    NSLog "project_menu_item = #{project_menu_item}"
                     project_menu_item.setImage(get_current_status_icon_for(project['color'], project_menu_item.image.name)) 
                 end
             end
+
+            NSLog("DONE refreshing project menu items...")
         end
         
+        NSLog("Calling growl_update_status...")
         growl_update_status
+        NSLog("Called growl_update_status (DONE).")
+        NSLog("load_projects (DONE).")
     end
     
     def handle_broken_connection(error_type)
-		# Comment out invalidate to fix issue GH-8
+        # Comment out invalidate to fix issue GH-8
         # @refresh_timer.invalidate
         NSLog("#{CONNECTION_ERROR_TITLE}: #{error_type}")
         @jenx_item.setImage(@build_failure_icon)
@@ -143,7 +168,9 @@ class Jenx
         
         NSLog("create timer with refresh time of: #{time.to_s} seconds...")
         
-        @refresh_timer = NSTimer.scheduledTimerWithTimeInterval(time, target:self, selector:"init_jenx:", userInfo:nil, repeats:true)
+        @refresh_timer = NSTimer.timerWithTimeInterval time,
+            target:self, selector:"init_jenx:", userInfo:nil, repeats:true
+        NSRunLoop.currentRunLoop.addTimer @refresh_timer, forMode:NSRunLoopCommonModes
     end
     
     def update_for_preferences(sender)
@@ -163,7 +190,7 @@ class Jenx
     def show_preferences_window(sender)
         @editing_preferences = true
         
-        clear_projects_from_menu
+        # clear_projects_from_menu
         NSApplication.sharedApplication.activateIgnoringOtherApps(true)
         PreferencesController.sharedController.showWindow(sender)
     end

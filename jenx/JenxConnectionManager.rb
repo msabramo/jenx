@@ -10,12 +10,16 @@ class JenxConnectionManager
     def initialize(&block)
         @queue ||= Dispatch::Queue.new("com.urbancoding.jenx")
         @group = Dispatch::Group.new
-        
+
+        NSLog "JenxConnectionManager.initialize calling async..."
         @queue.async(@group) { @value = block.call }
+        NSLog "JenxConnectionManager.initialize @value = #{@value.inspect}"
     end
     
     def value
+        NSLog ".value waiting..."
         @group.wait(5)
+        NSLog ".value about to return @value = #{@value.inspect}"
         @value
     end
 end

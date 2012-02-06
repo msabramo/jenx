@@ -33,6 +33,7 @@ class JenxConnection
             return {'jobs' => []}
         end
         
+        NSLog "Creating JenxConnectionManager..."
         connection_result = JenxConnectionManager.new do
             http = Net::HTTP.new(uri.host, uri.port)
             initSSL(http, uri.scheme)
@@ -44,6 +45,9 @@ class JenxConnection
                 JSON.parse(result)
             end
         end
+        NSLog "1 - connection_result.value = #{connection_result.value}"
+        connection_result.value
+        NSLog "2 - connection_result.value = #{connection_result.value}"
         connection_result.value
     end
 
